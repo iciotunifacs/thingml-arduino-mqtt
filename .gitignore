@@ -1,2 +1,4 @@
 # Remove any jar file
 ./*.jar
+./out
+./bin
