@@ -1,0 +1,70 @@
+import "lib/_Datatypes.thingml"
+import "TimerJava.thingml"
+
+/*
+enumeration ColorTemperature {
+	cold
+	normal
+	warm
+}
+*/
+
+thing fragment LightCtrlMSGs {
+	message lightOnOff(lightid : String, onoff: UInt8) @code "61"
+	message lightDim(lightid : String, bright: UInt8) @code "62"
+	message lightTemperature(lightid : String, temp: UInt8) @code "63"
+	
+	message lightStatus(lightid : String, onoff: UInt8, bright: UInt8, temp: UInt8) @code "65"
+}
+
+
+thing LightCtrl includes LightCtrlMSGs, TimerMsgs {
+	
+	required port clock {
+		sends timer_start, timer_cancel
+		receives timer_timeout
+	}
+	
+	required port light {
+		sends lightOnOff, lightDim, lightTemperature
+		receives lightStatus
+	}
+	
+	statechart SC init READY {
+		
+		on entry print "Started!\n"
+		
+		state READY {
+			
+			on entry clock!timer_start(0,2000)
+			
+			transition -> READY event t:clock?timer_timeout guard t.id == 0 action do
+				print "Sending...\n "
+				light!lightOnOff("Table 2", 1)
+				light!lightDim("Table 1", 127)
+			end 
+			
+			internal event e:light?lightStatus action do
+				print "Got Status! \n"
+			end
+			
+			
+		}	
+	}
+}
+
+
+protocol MQTT @serializer "JSON"
+  @mqtt_broker_address "localhost" @trace_level "2"
+  @mqtt_publish_topic "ThingML/lights/ctrl"
+  @mqtt_subscribe_topic "ThingML/lights/status";
+
+configuration MQTTTestCFG {
+	
+	instance app : LightCtrl
+	instance timer : TimerJava
+	connector app.clock => timer.timer
+	connector app.light over MQTT
+	
+	
+}
